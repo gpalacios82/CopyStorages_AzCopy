@@ -1,15 +1,18 @@
+$inicio = $(Get-Date)
+Write-Output "Empieza a las $inicio"
 
-Write-Information "Empieza a las $(Get-Date)"
 ############ LOGIN ############
-$tenantId = "tenantid"
-$pass = "pass"
-$appId = "app_id"
-$suscription = "subscriptionid"
+$tenantId = ""
+$pass = ""
+$appId = ""
+$suscription = ""
+
+$env:AZCOPY_SPA_CLIENT_SECRET=$pass
 
 $password = ConvertTo-SecureString $pass -AsPlainText -Force
 $psCred = New-Object System.Management.Automation.PSCredential -ArgumentList ($appId, $password)
 Connect-AzAccount -Credential $psCred -TenantId $tenantId -ServicePrincipal -SubscriptionId $suscription
-$storagesToCopy = 'storage1','storage2','storage3'
+$storagesToCopy = 'dataexchangeterraform','foundationstoragepro','mpstoragewebjobpro','roistoragepro','securityroistorage','soyuzstate','stpricecalculatorprod','stpricecalculatortfprod'
 
 # Lista todos los StorageAcounts a hacer backup
 $storagesOrigen = Get-AzStorageAccount |
@@ -22,23 +25,26 @@ Expand-Archive -Path .\azcopy.zip -DestinationPath .
 cd .\azcopy_windows_amd64_10.6.0\
 
 ############ COPIAR UN CONTAINER ORIGEN EN UN CONTAINER/BLOB DESTINO ############
-$env:AZCOPY_SPA_CLIENT_SECRET=$pass
-.\azcoy login --service-principal --application-id $appId --tenant-id=$tenantId
+.\azcopy.exe login --service-principal --application-id $appId --tenant-id=$tenantId
 
 $id=1
 foreach ($storageActual in $storagesOrigen) {
    $origen="https://$($storageActual.StorageAccountName).blob.core.windows.net/"
-   $destino="https://[storage_dest].blob.core.windows.net/$($storageActual.StorageAccountName)"
+   $destino="https://[storageaccount].blob.core.windows.net/$($storageActual.StorageAccountName)"
 
    # Fijar el storage account
    $key = Get-AzStorageAccountKey -ResourceGroupName $storageActual.ResourceGroupName -AccountName $storageActual.StorageAccountName
    $ctx = New-AzStorageContext -StorageAccountName $storageActual.StorageAccountName -StorageAccountKey $key[0].Value
    $sas = New-AzStorageAccountSASToken -Service Blob,File,Table,Queue -ResourceType Service,Container,Object -Permission "racwdlup" -Context $ctx
 
-   Write-Progress "Copiando storage $origen ($id de $($storagesOrigen.Length))"
-   .\azcoy make $destino
-   .\azcoy cp $($origen+$sas) $destino --log-level ERROR --recursive
+   Write-Output "Copiando storage $origen ($id de $($storagesOrigen.Length))"
+   .\azcopy.exe make $destino
+   .\azcopy.exe cp $($origen+$sas) $destino --log-level ERROR --recursive
    $id++
 }
 
-Write-Information "Termina OK a las $(Get-Date)"
+$fin = $(Get-Date)
+Write-Output "Termina a las $fin"
+Write-Output "Termina OK a las $(Get-Date)"
+$tiempo = $($fin-$inicio)
+Write-Output "Proceso terminado en $($tiempo.Hours):$($tiempo.Minutes):$($tiempo.Seconds)"
